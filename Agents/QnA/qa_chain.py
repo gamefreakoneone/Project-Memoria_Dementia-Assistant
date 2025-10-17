@@ -67,6 +67,9 @@ def _build_sources_node(state: Dict[str, Any]) -> Dict[str, Any]:
     for transcript in transcripts:
         documents.append(Document(page_content=transcript.text, metadata={"citation": transcript.citation()}))
 
+    if not documents:
+        return {"vector_store": None}
+
     vector_store = rag_utils.create_vector_store_from_documents(documents, str(VECTOR_STORE_DIR))
     return {"vector_store": vector_store}
 
@@ -209,7 +212,7 @@ def answer(question: str) -> Dict[str, Any]:
         return {"answer": "", "citations": []}
 
     state: Dict[str, Any] = {"question": question}
-    result = _QA_PIPELINE(state)
+    result = _QA_PIPELINE.invoke(state)
     return {
         "answer": result.get("answer", ""),
         "citations": result.get("citations", []),

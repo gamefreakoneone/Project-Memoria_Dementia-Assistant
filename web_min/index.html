@@ -3,33 +3,58 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blue Dream Minimal UI</title>
+    <title>Blue Dream Assistant</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
         margin: 2rem;
         max-width: 800px;
+        background-color: #f0f4f8;
+        color: #333;
+      }
+      h1,
+      h2 {
+        color: #005a9c;
       }
       textarea {
         width: 100%;
-        min-height: 150px;
+        min-height: 100px;
         padding: 0.75rem;
         font-size: 1rem;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
       button {
         margin-top: 1rem;
-        padding: 0.5rem 1rem;
+        padding: 0.75rem 1.5rem;
         font-size: 1rem;
         cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.3s;
+      }
+      button:hover {
+        background-color: #0056b3;
       }
       pre {
-        background: #f5f5f5;
+        background: #fff;
         padding: 1rem;
-        border-radius: 4px;
+        border-radius: 8px;
         overflow-x: auto;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        white-space: pre-wrap;
       }
       .section {
         margin-top: 2rem;
+      }
+      label {
+        font-weight: bold;
+        color: #005a9c;
       }
     </style>
   </head>
@@ -41,44 +66,70 @@
 
     <div class="section">
       <h2>Answer</h2>
-      <pre id="answer">(No answer yet)</pre>
+      <pre id="answer">I am ready to assist you.</pre>
     </div>
 
     <div class="section">
       <h2>Current State</h2>
-      <pre id="state">Loading...</pre>
+      <pre id="state">{
+  "world_state": {
+    "persons": {
+      "amogh": {
+        "room": "A",
+        "last_activity": "talking to himself and picks up his phone",
+        "last_seen": "..."
+      }
+    },
+    "objects": {}
+  },
+  "timeline": [
+    "piece-1",
+    "piece-2"
+  ]
+}</pre>
     </div>
 
     <script>
+      function obfuscateTimeline(timeline) {
+        if (!timeline) return [];
+        return timeline.map((_, index) => `piece-${index + 1}`);
+      }
+
       async function fetchState() {
         try {
-          const response = await fetch('/state');
+          const response = await fetch("http://localhost:8001/state");
           if (!response.ok) {
             throw new Error(`Failed to load state: ${response.status}`);
           }
           const data = await response.json();
-          document.getElementById('state').textContent = JSON.stringify(data, null, 2);
+          data.timeline = obfuscateTimeline(data.timeline);
+          document.getElementById("state").textContent = JSON.stringify(
+            data,
+            null,
+            2
+          );
         } catch (error) {
-          document.getElementById('state').textContent = error.message;
+          document.getElementById("state").textContent = error.message;
         }
       }
 
       async function sendPrompt() {
-        const prompt = document.getElementById('prompt').value.trim();
+        const prompt = document.getElementById("prompt").value.trim();
         if (!prompt) {
-          document.getElementById('answer').textContent = 'Please enter a prompt first.';
+          document.getElementById("answer").textContent =
+            "Please enter a prompt first.";
           return;
         }
 
-        document.getElementById('answer').textContent = 'Loading...';
+        document.getElementById("answer").textContent = "Loading...";
 
         try {
-          const response = await fetch('/ask', {
-            method: 'POST',
+          const response = await fetch("http://localhost:8001/ask", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json'
+              "Content-Type": "application/json",
             },
-            body: JSON.stringify({ question: prompt })
+            body: JSON.stringify({ question: prompt }),
           });
 
           if (!response.ok) {
@@ -92,19 +143,26 @@
             answerLines.push(data.answer);
           }
           if (Array.isArray(data.citations) && data.citations.length > 0) {
-            answerLines.push(`Citations: ${data.citations.join(', ')}`);
+            answerLines.push(`Citations: ${data.citations.join(", ")}`);
           }
-          document.getElementById('answer').textContent = answerLines.join('\n') || '(No answer returned)';
+          document.getElementById("answer").textContent =
+            answerLines.join("\n") || "(No answer returned)";
           if (data.state) {
-            document.getElementById('state').textContent = JSON.stringify(data.state, null, 2);
+            data.state.timeline = obfuscateTimeline(data.state.timeline);
+            document.getElementById("state").textContent = JSON.stringify(
+              data.state,
+              null,
+              2
+            );
           }
         } catch (error) {
-          document.getElementById('answer').textContent = error.message;
+          document.getElementById("answer").textContent = error.message;
         }
       }
 
-      document.getElementById('askBtn').addEventListener('click', sendPrompt);
-      window.addEventListener('load', fetchState);
+      document.getElementById("askBtn").addEventListener("click", sendPrompt);
+      // Do not fetch state on load to keep the initial state for the demo
+      // window.addEventListener('load', fetchState);
     </script>
   </body>
 </html>

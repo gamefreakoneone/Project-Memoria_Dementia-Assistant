@@ -28,7 +28,7 @@ _PROMPT = """Instruct: Return one JSON object only matching this schema:
     {
       "pid_hint": "string",
       "appearance": { "top": "string", "bottom": "string", "shoes": "string", "others": "string|null" },
-      "activities": ["entered","picked","placed","exited","carry","handoff"]
+      "activities": ["entered","picked","placed","exited","carry","handoff", "lying_down", "fallen"]
     }
   ],
   "objects": [
@@ -46,13 +46,16 @@ _PROMPT = """Instruct: Return one JSON object only matching this schema:
     "present": true,
     "transcript": "string",
     "utterances": [ { "start_s": 0.0, "end_s": 0.0, "text": "string" } ]
-  }
+  },
+  "emergency_contact": "string|null"
 }
 
 
 Rules:
 
 Use clear appearance descriptors (colors/patterns).
+
+If a person is detected as "lying_down" or "fallen", set the "emergency_contact" field to "call_email_agent".
 
 If no audio track, set audio.present=false and omit transcript.
 
@@ -115,6 +118,7 @@ def analyze_clip(clip_path: str, clip_id: str, room: str) -> Dict:
     client = _get_client()
 
     uploaded_file = client.files.upload(file=clip_path)
+    print(f"Video clip {clip_id} sent to Gemini API for analysis.")
 
     while getattr(uploaded_file.state, "name", None) == "PROCESSING":
         time.sleep(_POLL_INTERVAL_SECONDS)
@@ -128,6 +132,7 @@ def analyze_clip(clip_path: str, clip_id: str, room: str) -> Dict:
         model=_MODEL_NAME,
         contents=[uploaded_file, _PROMPT],
     )
+    print(f"Received response from Gemini API for clip {clip_id}.")
 
     if not getattr(response, "text", "").strip():
         raise RuntimeError("Empty response received from Gemini.")

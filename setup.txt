@@ -1,0 +1,182 @@
+ 1. Setup and Installation
+
+   1 # Install Python dependencies
+   2 pip install -r requirements.txt
+   3
+   4 # Make sure the YOLO model file exists
+   5 # Download yolo11n.pt if not present
+
+  2. Running the Capture System
+
+   1 # Run the main capture system
+   2 python -m capture.capture_two_cams # See if you can display what is being recorded
+   3
+   4 # Or run with specific logging
+   5 python -m capture.capture_two_cams --log-level DEBUG
+
+  3. Testing the Q&A System
+
+   1 # Start the Q&A API server
+   2 uvicorn Agents.QnA.qa_api:app --reload
+   3
+   4 # Or run the Q&A chain directly
+   5 python -c "from Agents.QnA.qa_chain import answer; print(answer('What happened in the scene?'))"
+
+  4. Testing Scene Resolution
+
+    1 # Test scene resolution directly
+    2 python -c "
+    3 from SceneResolver import resolver
+    4 from SceneResolver.schemas import GeminiClip
+    5 import json
+    6
+    7 # Example of how to test ingestion
+    8 sample_clip = {
+    9     'clip_id': 'test_clip',
+   10     'room': 'A',
+   11     'summary': 'Test summary',
+   12     'people': [],
+   13     'objects': [],
+   14     'audio': {'present': True, 'transcript': 'Test transcript'},
+   15     'metadata': {}
+   16 }
+   17
+   18 state = {'raw_clip': sample_clip}
+   19 result = resolver._parse_clip(state)
+   20 print('Test successful:', result)
+   21 "
+
+  5. Running the Full System Test
+
+   1 # Terminal 1: Start the capture system
+   2 python -m capture.capture_two_cams
+   3
+   4 # Terminal 2: Start the Q&A API
+   5 uvicorn Agents.QnA.qa_api:app --reload --port 8001
+
+  Then you can query the API at http://localhost:8001/query with a POST request containing {"question": "your question here"}.
+
+  6. Testing with Sample Data
+
+  If you don't have cameras available, you can test with sample video files:
+
+    1 # Create a test script that simulates clip analysis
+    2 # test_system.py
+    3 from SceneResolver import resolver
+    4 import json
+    5
+    6 # Sample data to test the system
+    7 sample_analysis_result = {
+    8     "clip_id": "test_clip_001",
+    9     "room": "A",
+   10     "summary": "Person entered room A wearing blue jacket and picked up a book",
+   11     "people": [
+   12         {
+   13             "pid_hint": "person1",
+   14             "appearance": {
+   15                 "top": "blue jacket",
+   16                 "bottom": "black jeans",
+   17                 "shoes": "white sneakers",
+   18                 "others": None
+   19             },
+   20             "activities": ["entered", "picked"]
+   21         }
+   22     ],
+   23     "objects": [
+   24         {
+   25             "name": "book",
+   26             "picked_by": "person1",
+   27             "pick_time_s": 5.2,
+   28             "placed_at": None,
+   29             "place_time_s": 0.0,
+   30             "exited_with": False,
+   31             "uncertain": False
+   32         }
+   33     ],
+   34     "audio": {
+   35         "present": True,
+   36         "transcript": "Person said hello when entering the room",
+   37         "utterances": [
+   38             {
+   39                 "start_s": 2.1,
+   40                 "end_s": 4.5,
+   41                 "text": "hello when entering"
+   42             }
+   43         ]
+   44     },
+   45     "metadata": {
+   46         "source_camera": "camA",
+   47         "recording_time": "2025-10-17T10:00:00Z"
+   48     }
+   49 }
+   50
+   51 # Ingest the sample data
+   52 result = resolver.ingest(sample_analysis_result)
+   53 print("Ingestion result:", result)
+   54 print("Timeline length:", len(result.timeline))
+
+  What's Working & What May Need Attention
+
+
+
+  Potential Issues to Monitor:
+   - 🚨 Requires valid Gemini API key for AI analysis
+   - 🚨 Need YOLO model file (yolo11n.pt) for person detection
+   - 🚨 Camera access requires proper hardware/RTSP URLs
+   - 🚨 Internet connection required for Gemini API calls
+
+  Initial Testing Steps
+
+   1. Set up your .env file with a valid Gemini API key
+   2. Download yolo11n.pt model file if not present
+   3. Run a simple test to verify the Q&A system works:
+
+   1 # Test basic functionality
+   2 python -c "from SceneResolver.state_store import load_state; print(load_state())"
+
+   4. Start with Q&A API first to verify core functionality before running the full capture system:
+
+   1 uvicorn Agents.QnA.qa_api:app --reload
+
+
+
+
+✦ Of course. Here are the step-by-step instructions to set up and run the entire system.
+
+  Step 1: Set up the Environment
+
+   1. Install Dependencies: Open your terminal and run the following command to install the necessary Python packages:
+
+   1     pip install -r requirements.txt
+
+   2. Configure API Key: You need to provide a Gemini API key.
+       * In the Environment folder, you'll find a file named .env.example.
+       * Create a copy of this file in the root directory of the project and name it .env.
+       * Edit the .env file and add your Gemini API key. It should look something like this:
+   1         GEMINI_API_KEY="your_api_key_here"
+
+  Step 2: Run the Backend and Capture System
+
+  You will need two separate terminals running at the same time.
+
+  In your first terminal, start the backend Q&A server:
+
+   1 uvicorn Agents.QnA.qa_api:app --reload --port 8001
+
+  In your second terminal, start the camera capture system:
+
+   1 python -m capture.capture_two_cams
+  This will open windows showing the camera feeds. You can press 'q' in those windows to close them.
+
+  Step 3: Access the Web Interface
+
+  The website is in the web_min directory. To avoid issues with browser security, it's best to serve it with a local web server.
+
+   1. Open a third terminal.
+
+   2. Start a web server: Run the following command to start a simple web server in the web_min directory.
+
+   1     python -m http.server 8000 --directory web_min
+
+   3. Open the website: Open your web browser and go to the following address:
+      http://localhost:8000 (http://localhost:8000)

@@ -2,3 +2,6 @@ langgraph
 chromadb
 langchain
 langchain-openai
+python-dotenv
+google-generativeai
+google-auth-oauthlib

@@ -214,10 +214,13 @@ class ClipWriter:
                 )
 
             try:
-                ffmpeg.run(output, overwrite_output=True, quiet=True)
+                ffmpeg.run(output, overwrite_output=True, quiet=True, cmd=r"C:\ffmpeg\ffmpeg-n8.0-latest-win64-gpl-8.0\bin\ffmpeg.exe")
             except ffmpeg.Error:  # pragma: no cover - integration path
-                _LOGGER.exception("ffmpeg failed for clip %s camera %s", context.clip_id, camera_name)
-                continue
+                try:
+                    # Fallback to system ffmpeg
+                    ffmpeg.run(output, overwrite_output=True, quiet=True)
+                except ffmpeg.Error:
+                    continue
 
             final_paths[camera_name] = final_path
             context.final_paths[camera_name] = final_path

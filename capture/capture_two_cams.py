@@ -65,16 +65,21 @@ def _load_model(config: Config) -> YOLO:
     return YOLO(str(model_path))
 
 
-def _detect_people(model: YOLO, frames: Dict[str, np.ndarray], threshold: float) -> Dict[str, int]:
+def _detect_people(
+    model: YOLO, frames: Dict[str, np.ndarray], threshold: float
+) -> Tuple[Dict[str, int], Dict[str, np.ndarray]]:
+    """Detects people in frames and returns counts and annotated frames."""
     if not frames:
-        return {name: 0 for name in frames.keys()}
+        return {}, {}
 
     names = list(frames.keys())
     inputs = [frames[name] for name in names]
     results = model(inputs, verbose=False)
 
     counts: Dict[str, int] = {}
+    annotated_frames: Dict[str, np.ndarray] = {}
     for name, result in zip(names, results):
+        annotated_frames[name] = result.plot()
         count = 0
         boxes = getattr(result, "boxes", None)
         if boxes is None:
@@ -98,7 +103,7 @@ def _detect_people(model: YOLO, frames: Dict[str, np.ndarray], threshold: float)
                 count += 1
         counts[name] = count
 
-    return counts
+    return counts, annotated_frames
 
 
 def _setup_audio(config: Config) -> Optional[AudioRecorder]:
@@ -211,7 +216,13 @@ def run_capture(config: Config) -> None:
                 time.sleep(0.1)
                 continue
 
-            person_counts = _detect_people(model, frames, threshold)
+            person_counts, annotated_frames = _detect_people(model, frames, threshold)
+            for name, frame in annotated_frames.items():
+                cv2.imshow(name, frame)
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
             persons_present = any(count > 0 for count in person_counts.values())
             now = time.time()
             if persons_present:
@@ -301,6 +312,7 @@ def run_capture(config: Config) -> None:
             _finalise_clip(writer, audio_recorder, audio_running, metadata=metadata)
         for runtime in runtimes.values():
             runtime.capture.release()
+        cv2.destroyAllWindows()
 
 
 def main(argv: Optional[Iterable[str]] = None) -> None:

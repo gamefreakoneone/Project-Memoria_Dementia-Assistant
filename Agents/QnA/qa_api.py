@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -10,7 +14,17 @@ from SceneResolver.state_store import load_state
 
 from .qa_chain import STATE_PATH, answer
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Scene QA")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class Question(BaseModel):
