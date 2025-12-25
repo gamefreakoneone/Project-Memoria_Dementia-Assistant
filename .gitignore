@@ -1,8 +1,0 @@
-datasets
-runs
-.env
-data
-Tools/Email/credentials.json
-Tools/Email/token.pickle
-Tools/Email/client_secret_852080266925-166ajb4pheoi52aq6qpql54vndgb8fk7.apps.googleusercontent.com.json
-send_emergency_email.py
