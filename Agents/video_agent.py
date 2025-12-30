@@ -1,0 +1,1 @@
+# planning on using the Gemini API for this one
