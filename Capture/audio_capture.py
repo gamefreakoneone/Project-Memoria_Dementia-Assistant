@@ -5,7 +5,7 @@ import os
 from pydub import AudioSegment
 
 class AudioRecorder:
-    def __init__(self):
+    def __init__(self, device_index=None):
         self.chunk = 1024
         self.sample_format = pyaudio.paInt16
         self.channels = 1  # Mono for compatibility
@@ -16,6 +16,32 @@ class AudioRecorder:
         self.p = None
         self.thread = None
         self.current_filename = None
+        self.device_index = device_index  # None uses default device
+    
+    @staticmethod
+    def list_input_devices():
+        """
+        List all available audio input devices.
+        Returns a list of tuples: (index, name, channels)
+        """
+        p = pyaudio.PyAudio()
+        devices = []
+        
+        print("\nAvailable Audio Input Devices:")
+        print("-" * 70)
+        
+        for i in range(p.get_device_count()):
+            info = p.get_device_info_by_index(i)
+            # Only show input devices (max input channels > 0)
+            if info['maxInputChannels'] > 0:
+                devices.append((i, info['name'], info['maxInputChannels']))
+                print(f"Index {i}: {info['name']}")
+                print(f"  - Channels: {info['maxInputChannels']}")
+                print(f"  - Sample Rate: {int(info['defaultSampleRate'])} Hz")
+        
+        print("-" * 70)
+        p.terminate()
+        return devices
         
     def _record(self):
         """Internal method that runs in a separate thread to record audio."""
@@ -27,10 +53,14 @@ class AudioRecorder:
                 channels=self.channels,
                 rate=self.fs,
                 frames_per_buffer=self.chunk,
-                input=True
+                input=True,
+                input_device_index=self.device_index  # Use selected device
             )
             
             print(f"Audio recording started: {self.current_filename}")
+            if self.device_index is not None:
+                device_info = self.p.get_device_info_by_index(self.device_index)
+                print(f"Using device: {device_info['name']}")
             
             while self.is_recording:
                 try:
@@ -124,7 +154,16 @@ class AudioRecorder:
 if __name__ == "__main__":
     import time
     
-    recorder = AudioRecorder()
+    # List available devices
+    AudioRecorder.list_input_devices()
+    
+    # Choose device (change this index based on the list above)
+    # device_index = int(input("\nEnter device index to use (or press Enter for default): ") or -1)
+    # if device_index == -1:
+    #     device_index = None
+    device_index = -1
+    
+    recorder = AudioRecorder(device_index=device_index)
     
     # Test recording for 3 seconds
     test_file = "test_audio.mp3"
