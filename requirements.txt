@@ -1,0 +1,16 @@
+# Blue-Dream Project Dependencies
+
+# Computer Vision & AI
+ultralytics          # YOLO11 model for human detection
+opencv-python        # Camera capture and video processing
+
+# AI APIs
+google-genai         # Gemini API for video analysis
+openai               # OpenAI API for transcription and image editing
+
+# Audio Processing
+pyaudio              # Audio recording
+pydub                # Audio format conversion (requires FFmpeg)
+
+# Utilities
+python-dotenv        # Environment variable loading from .env

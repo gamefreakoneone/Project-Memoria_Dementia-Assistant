@@ -2,7 +2,38 @@ from ultralytics import YOLO
 import cv2
 from datetime import datetime
 import os
+import time
 from audio_capture import AudioRecorder
+
+def save_last_frame_screenshot(video_path, screenshot_dir):
+    """Extract and save the last frame from a video file as a screenshot."""
+    try:
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Error: Could not open video file for screenshot: {video_path}")
+            return None
+        
+        # Get total frame count and go to last frame
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames > 0:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames - 1)
+        
+        ret, frame = cap.read()
+        cap.release()
+        
+        if ret and frame is not None:
+            # Generate screenshot filename based on video filename
+            video_basename = os.path.splitext(os.path.basename(video_path))[0]
+            screenshot_filename = os.path.join(screenshot_dir, f"{video_basename}.jpg")
+            cv2.imwrite(screenshot_filename, frame)
+            print(f"Saved screenshot: {screenshot_filename}")
+            return screenshot_filename
+        else:
+            print(f"Error: Could not read last frame from video: {video_path}")
+            return None
+    except Exception as e:
+        print(f"Error saving screenshot: {e}")
+        return None
 
 def camera_feed():
     # Get the project root directory (parent of Capture folder)
@@ -20,6 +51,12 @@ def camera_feed():
     recording_active = {}  # Track recording state for each camera
     video_output_dirs = {}  # Track video output directories per camera
     audio_output_dirs = {}  # Track audio output directories per camera
+    screenshot_output_dirs = {}  # Track screenshot output directories per camera
+    
+    # Buffer tracking for detection grace period
+    last_person_detected_time = {}  # Track when person was last detected per camera
+    current_video_filename = {}  # Track current video filename for screenshot
+    DETECTION_BUFFER_SECONDS = 2  # 2-second buffer before stopping recording
 
     for idx in camera_indices:
         cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
@@ -30,11 +67,15 @@ def camera_feed():
             video_writers[idx] = None
             audio_recorders[idx] = AudioRecorder()
             recording_active[idx] = False
+            last_person_detected_time[idx] = None
+            current_video_filename[idx] = None
             # Create camera-specific output directories
             video_output_dirs[idx] = os.path.join(project_root, "Storage", "video_recordings", f"camera_{idx}")
             audio_output_dirs[idx] = os.path.join(project_root, "Storage", "audio_recordings", f"camera_{idx}")
+            screenshot_output_dirs[idx] = os.path.join(project_root, "Storage", "screenshots", f"camera_{idx}")
             os.makedirs(video_output_dirs[idx], exist_ok=True)
             os.makedirs(audio_output_dirs[idx], exist_ok=True)
+            os.makedirs(screenshot_output_dirs[idx], exist_ok=True)
             print(f"Camera {idx} opened successfully!")
         else:
             print(f"Camera {idx} not available")
@@ -74,12 +115,20 @@ def camera_feed():
                         if class_id == PERSON_CLASS_ID:
                             person_detected = True
                             break
+                
+                current_time = time.time()
+                
+                # Update last detection time if person is detected
+                if person_detected:
+                    last_person_detected_time[idx] = current_time
                     
                 if person_detected and not recording_active[idx]:
+                    # Start new recording
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     video_filename = os.path.join(video_output_dirs[idx], f"camera_{idx}_{timestamp}.mp4")
                     audio_filename = os.path.join(audio_output_dirs[idx], f"camera_{idx}_{timestamp}.mp3")
-                    fourcc = cv2.VideoWriter_fourcc(*'mp4v') # What is fourcc? It is a 4-byte code that uniquely identifies the video codec.
+                    current_video_filename[idx] = video_filename
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
                     video_writers[idx] = cv2.VideoWriter(video_filename, fourcc, fps, 
                                                      (frame_width, frame_height))
                     # Start audio recording
@@ -87,13 +136,23 @@ def camera_feed():
                     recording_active[idx] = True
                     print(f"Started recording: {video_filename}")
                 elif not person_detected and recording_active[idx]:
-                    # Stop video recording
-                    video_writers[idx].release()
-                    video_writers[idx] = None
-                    # Stop audio recording
-                    audio_recorders[idx].stop_recording()
-                    recording_active[idx] = False
-                    print(f"Stopped recording for camera {idx}")
+                    # Check if buffer time has elapsed since last detection
+                    time_since_last_detection = current_time - last_person_detected_time[idx]
+                    
+                    if time_since_last_detection >= DETECTION_BUFFER_SECONDS:
+                        # Buffer expired, stop recording
+                        video_writers[idx].release()
+                        video_writers[idx] = None
+                        # Stop audio recording
+                        audio_recorders[idx].stop_recording()
+                        recording_active[idx] = False
+                        print(f"Stopped recording for camera {idx} (no detection for {DETECTION_BUFFER_SECONDS}s)")
+                        
+                        # Save last frame as screenshot
+                        if current_video_filename[idx]:
+                            save_last_frame_screenshot(current_video_filename[idx], screenshot_output_dirs[idx])
+                            current_video_filename[idx] = None
+                    # else: continue recording during buffer period
 
                 if recording_active[idx] and video_writers[idx] is not None:
                     video_writers[idx].write(frame)
@@ -146,6 +205,9 @@ def camera_feed():
             video_writers[idx].release()
         if recording_active.get(idx, False):
             audio_recorders[idx].stop_recording()
+            # Save last frame as screenshot for any active recordings
+            if current_video_filename.get(idx):
+                save_last_frame_screenshot(current_video_filename[idx], screenshot_output_dirs[idx])
     cv2.destroyAllWindows()
     print("All cameras released and windows closed")
 

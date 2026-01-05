@@ -9,20 +9,6 @@ import time
 load_dotenv(find_dotenv())
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# myfile = client.files.upload(file=r"C:\Users\amogh\Desktop\Blue-Dream\Storage\video_recordings\camera_1\camera_1_20251230_121820.mp4")
-# print("Processing video...")
-# while myfile.state == "PROCESSING":
-#     print(".", end="", flush=True)
-#     time.sleep(1)
-#     myfile = client.files.get(name=myfile.name)
-# if myfile.state == "FAILED":
-#     raise Exception("File processing failed.")
-# print("\nFile is ready!")
-
-
-# response = client.models.generate_content(
-#     model="gemini-2.5-flash", contents=[myfile, "Describe this video."]
-# )
 
 class Video_Agent:
     def __init__(self):
@@ -50,11 +36,9 @@ class Video_Agent:
         )
         return response.text
 
-    def generate_images(self , screenshot_path):
+
+        
         
 
-test_agent = Video_Agent()
-print(test_agent.video_description(r"C:\Users\amogh\Desktop\Blue-Dream\Storage\video_recordings\camera_1\camera_1_20251230_125650.mp4"))
-
-
-# print(response.text)
+# test_agent = Video_Agent()
+# print(test_agent.video_description(r"C:\Users\amogh\Desktop\Blue-Dream\Storage\video_recordings\camera_1\camera_1_20251230_125650.mp4"))
