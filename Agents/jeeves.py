@@ -19,6 +19,10 @@ class Test(TypedDict):
 async def test_function():
     pass
 
+rooms = {
+    0 : "Bedroom",
+    1 : "Living Room"
+}
 
 # Remember to refine this better    
 agent = Agent(

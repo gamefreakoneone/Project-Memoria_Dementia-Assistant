@@ -124,7 +124,8 @@ def camera_feed():
                     
                 if person_detected and not recording_active[idx]:
                     # Start new recording
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    # Remmeber to store the timestamp as an object or string?? 
+                    timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
                     video_filename = os.path.join(video_output_dirs[idx], f"camera_{idx}_{timestamp}.mp4")
                     audio_filename = os.path.join(audio_output_dirs[idx], f"camera_{idx}_{timestamp}.mp3")
                     current_video_filename[idx] = video_filename
@@ -152,6 +153,8 @@ def camera_feed():
                         if current_video_filename[idx]:
                             save_last_frame_screenshot(current_video_filename[idx], screenshot_output_dirs[idx])
                             current_video_filename[idx] = None
+                        
+                        # Here we should pass the video path, audio_file path, screenshot path to the consolidator agent which will then call the subagents
                     # else: continue recording during buffer period
 
                 if recording_active[idx] and video_writers[idx] is not None:
