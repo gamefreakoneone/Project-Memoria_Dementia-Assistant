@@ -13,7 +13,6 @@ class Audio_agent:
 
     def transcribe_audio(self, audio_file):
         transcript = self.client.audio.transcriptions.create(
-            model="gpt-4o-transcribe",
-            file=audio_file
+            model="gpt-4o-transcribe", file=audio_file
         )
         return transcript.text

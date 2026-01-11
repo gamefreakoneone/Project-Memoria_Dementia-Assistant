@@ -1,3 +1,5 @@
 .env
 Storage
 Agents\test_data
+trash.py
+Agents/agent_builder.ipynb
