@@ -1,0 +1,9 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+LOCAL_TZ = ZoneInfo("America/Los_Angeles")
+
+
+def now_local() -> datetime:
+    """Get current time in local timezone (timezone-aware)."""
+    return datetime.now(LOCAL_TZ)
