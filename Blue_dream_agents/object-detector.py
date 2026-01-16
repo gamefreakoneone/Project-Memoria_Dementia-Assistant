@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 from openai import AsyncOpenAI
 from agents import Agent, function_tool
-from .timezone_utils import now_local
+from timezone_utils import now_local
 
 
 load_dotenv(find_dotenv())
@@ -52,14 +52,15 @@ class SearchResult(BaseModel):
 
 
 class ObjectDetectorAgent:
-    def __init__(self, rooms: Dict[int, str], mongo_uri: str = None):
-        self.openai_client = AsyncOpenAI(
-            api_key=os.getenv("OPENAI_API_KEY")
-        )  # Honestly, I need to test this out and see if it works or not
-        self.ROOMS = rooms
-        self.mongo_uri = mongo_uri or os.getenv(
-            "MONGODB_URI", "mongodb://localhost:27017"
-        )
+    def __init__(self):
+
+        self.ROOMS: Dict[int, str] = {
+            0: "Bedroom",
+            1: "Living Room",
+        }
+        self.openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        self.mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
         self._mongo_client = None
 
     @property
@@ -96,16 +97,40 @@ class ObjectDetectorAgent:
                     screenshot_path=doc.get("screenshot_path", ""),
                     video_path=doc.get("video_path", ""),
                     audio_path=doc.get("audio_path", ""),
-                    timestamp=doc.get(
-                        "timestamp", now_local()
-                    ),  # Ensure this aligns with MongoDB date
+                    timestamp=doc.get("timestamp", now_local()),
                 )
             )
         return room_states
 
-    async def _parse_query_intent(
+    async def _get_recent_history(self, limit: int = 15) -> str:
+        """
+        Fetch the last N events to build a timeline context.
+        """
+        db = self.mongo_client.dementia_assistance
+        collection = db.events
+
+        cursor = collection.find().sort("timestamp", -1).limit(limit)
+        events = []
+        async for doc in cursor:
+            # Convert to pretty string
+            timestamp = doc.get("timestamp", now_local())
+            if isinstance(timestamp, datetime.datetime):
+                t_str = timestamp.strftime("%H:%M:%S")
+            else:
+                t_str = str(timestamp)
+
+            room_num = doc.get("room_number", 0)
+            room_name = self.ROOMS.get(int(room_num), f"Room {room_num}")
+            desc = doc.get("video_description", "No description")
+
+            events.append(f"[{t_str}] {room_name}: {desc}")
+
+        # Reverse to chronological order (oldest to newest)
+        return "\n".join(reversed(events))
+
+    async def _parse_query_intent( 
         self, user_query: str
-    ) -> dict:  # This is garbage logic
+    ) -> dict:  
         """
         INTENT PARSING EXPLAINED:
         The user might say "Where are my keys?" (Generic search)
@@ -134,7 +159,7 @@ class ObjectDetectorAgent:
         )
         try:
             return json.loads(response.choices[0].message.content)
-        except:
+        except Exception:
             return {"object_name": user_query, "room_id": None}
 
     async def _batch_semantic_match(
@@ -209,7 +234,7 @@ If not found, Reply JSON: {{ "found": false }}
                         ],
                     }
                 ],
-                max_tokens=150,
+                max_tokens=500,
                 response_format={"type": "json_object"},
             )
 
@@ -234,39 +259,16 @@ If not found, Reply JSON: {{ "found": false }}
                 return res
         return None
 
-    async def _get_object_hints(
-        self, search_term: str, room_states: List[RoomState]
-    ) -> Optional[str]:
+    async def _get_object_hints(self, search_term: str) -> Optional[str]:
         """
         UPDATED LOGIC:
-        We now include the TIMESTAMP in the prompt.
-        This allows the LLM to understand the ORDER of events.
-
-        Example:
-        10:00 AM [Bedroom]: User left with hat.
-        10:05 AM [Living Room]: User entered with hat, left with hat.
-
-        The LLM can deduce: "User was last seen in Living Room at 10:05 AM with the hat."
+        We now query the *history* of events, not just the latest state.
+        This captures "User took object X" even if the room is now empty.
         """
+        history_text = await self._get_recent_history(limit=20)
 
-        # Sort states by time just in case, though usually latest is passed.
-        # Actually, room_states only contains the *latest* snapshot per room.
-        # Ideally, for a full trail, we'd query historical events, but starting with latest snapshots per room is a good proxy
-        # for "where did we last see it roughly".
-
-        # Format: [Time] RoomName: Description
-        descriptions = []
-        for r in room_states:
-            if r.video_description:
-                # Format time nicely
-                t_str = (
-                    r.timestamp.strftime("%H:%M:%S")
-                    if isinstance(r.timestamp, datetime.datetime)
-                    else str(r.timestamp)
-                )
-                descriptions.append(f"[{t_str}] {r.room_name}: {r.video_description}")
-
-        history_text = "\n".join(descriptions)
+        if not history_text:
+            return None
 
         if not history_text:
             return None
@@ -303,7 +305,7 @@ Reply JSON: {{ "hint": "..." }} or {{ "hint": null }}""",
         For this prototype, standard 'await' is okay, but be aware the agent cannot do two things at once during this time.
         """
         try:
-            from .sam3_api import sam3_api
+            from sam3_api import sam3_api
 
             return await sam3_api(image_path, object_name)
         except ImportError:
@@ -313,6 +315,8 @@ Reply JSON: {{ "hint": "..." }} or {{ "hint": null }}""",
     async def _highlight_object(
         self, object_name: str, image_path: str, output_dir: str = "Storage/highlighted"
     ) -> Optional[str]:
+        # Convert to absolute path BEFORE calling sam3 (which changes CWD)
+        output_dir = os.path.abspath(output_dir)
         os.makedirs(output_dir, exist_ok=True)
 
         try:
@@ -401,9 +405,9 @@ Reply JSON: {{ "hint": "..." }} or {{ "hint": null }}""",
                     highlighted_image_path=highlight_path,
                 )
 
-            # 4. Hints (now time-aware)
+            # 4. Hints (now history-aware)
             print("Checking hints...")
-            hint = await self._get_object_hints(target_object, room_states)
+            hint = await self._get_object_hints(target_object)
 
             return SearchResult(
                 found=False,
@@ -421,3 +425,20 @@ Reply JSON: {{ "hint": "..." }} or {{ "hint": null }}""",
 
     async def search_agent(self, query: str) -> SearchResult:
         return await self.search_for_object(query)
+
+
+
+
+if __name__ == "__main__":
+
+    async def main():
+        print("Running Object Detector Test...")
+        # Note: This will only work if MongoDB is running and populated
+        test_agent = ObjectDetectorAgent()
+        
+        result = await test_agent.search_agent("Where is my white baseball cap?")
+        print(result)
+        # Clean up
+        await test_agent.close()
+
+    asyncio.run(main())

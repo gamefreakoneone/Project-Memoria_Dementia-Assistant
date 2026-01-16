@@ -10,6 +10,7 @@ from video_processing_queue import VideoProcessingQueue
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Blue_dream_agents.timezone_utils import now_local
+from Blue_dream_agents.Tools.dementia_email import GmailAgent
 
 # Fall detection class IDs from your custom YOLO model
 FALLEN_CLASS_ID = 0
@@ -33,15 +34,28 @@ ROOMS = {
 }
 
 
-def send_fall_alert(camera_idx, timestamp):
-    """Send alert when a fall is detected. Currently prints to console.
-
-    TODO: Replace this with email sending logic later.
-    """
+def send_fall_alert(gmail_agent, camera_idx, timestamp):
+    """Send alert when a fall is detected."""
     print(f"⚠️ FALL DETECTED! Camera {camera_idx} at {timestamp}")
     print("🚨 ALERT: Person has fallen down! Immediate attention required!")
-    # TODO: Add email sending logic here
-    # Example: send_email(to="caregiver@example.com", subject="Fall Detected", body=f"Fall detected on camera {camera_idx}")
+
+    # Resolve room name
+    room_name = ROOMS.get(
+        CAMERA_ROOM_MAPPING.get(camera_idx, -1), f"Camera {camera_idx}"
+    )
+
+    if gmail_agent:
+        try:
+            print(f"Sending email alert for {room_name}...")
+            gmail_agent.send_alert_email(
+                to="amogh@outlook.com",  # REPLACE WITH ACTUAL EMAIL
+                subject=f"URGENT: Fall Detected in {room_name}",
+                alert_type="FALL DETECTED",
+                location=room_name,
+                timestamp=timestamp,
+            )
+        except Exception as e:
+            print(f"Error sending email alert: {e}")
 
 
 def save_last_frame_screenshot(video_path, screenshot_dir):
@@ -82,6 +96,16 @@ def camera_feed():
 
     # Load YOLO11 model
     model = YOLO(r"Capture\trained-weights\best.pt")
+
+    # Initialize Gmail Agent
+    try:
+        print("Initializing Gmail Agent...")
+        gmail_agent = GmailAgent()
+    except Exception as e:
+        print(
+            f"Warning: Could not initialize Gmail Agent. Email alerts will be disabled. Error: {e}"
+        )
+        gmail_agent = None
 
     # Detect all available cameras
     # camera_indices = [1]
@@ -179,7 +203,7 @@ def camera_feed():
                         confidence = float(box.conf[0])
 
                         # Apply confidence threshold
-                        if confidence > 0.5:
+                        if confidence > 0.73:
                             # Your model: 0 = fallen, 1 = not fallen (standing)
                             if class_id in (FALLEN_CLASS_ID, NOT_FALLEN_CLASS_ID):
                                 person_detected = True
@@ -205,7 +229,7 @@ def camera_feed():
                                 timestamp_str = datetime.now().strftime(
                                     "%Y-%m-%d %H:%M:%S"
                                 )
-                                send_fall_alert(idx, timestamp_str)
+                                send_fall_alert(gmail_agent, idx, timestamp_str)
                                 fall_alert_sent[idx] = True
                 else:
                     # Reset fall timer if no fall detected
