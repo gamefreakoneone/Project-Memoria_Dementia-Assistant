@@ -4,13 +4,15 @@ from typing import Optional, Literal, Dict, Any
 
 from dotenv import load_dotenv, find_dotenv
 from pydantic import BaseModel, Field
-from agents import Agent, Runner, handoff
+from agents import Agent, Runner, handoff, AgentOutputSchema
+
 
 # from Blue_dream_agents.time_agent import time_agent
 from time_agent import time_agent
 
 # from Blue_dream_agents.object_detector import object_detector_agent, SearchResult
-from object_detector import object_detector_agent, SearchResult
+from object_detector import object_detector_agent
+
 
 # Load environment variables
 load_dotenv(find_dotenv())
@@ -35,41 +37,6 @@ class JeevesResponse(BaseModel):
     data: Optional[Dict[str, Any]] = Field(
         None, description="Raw structured data from the sub-agent if applicable"
     )
-
-
-def process_response(result) -> JeevesResponse:
-    """
-    Convert a Runner result into a unified JeevesResponse.
-
-    This handles different output types from sub-agents:
-    - SearchResult from ObjectDetector -> includes image_path
-    - str from TimeAgent or Jeeves itself -> plain text response
-    """
-    output = result.final_output
-
-    # Handle ObjectDetector's SearchResult
-    if isinstance(output, SearchResult):
-        # Build a human-readable text from the SearchResult
-        if output.found:
-            text = (
-                output.description
-                or f"Found {output.matched_object} in the {output.room_name}."
-            )
-        else:
-            text = output.description or "I couldn't find that object."
-            if output.hint:
-                text += f" {output.hint}"
-
-        return JeevesResponse(
-            response_type="search_result",
-            text=text,
-            image_path=output.highlighted_image_path,
-            data=output.model_dump(),
-        )
-
-    # Handle string responses (TimeAgent, general Jeeves responses)
-    else:
-        return JeevesResponse(response_type="general", text=str(output))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -104,7 +71,7 @@ transfer_to_object_detector = handoff(
 
 # jeeves_agent = Agent(
 #     name="Jeeves",
-#     instructions="""You are Jeeves, a routing assistant. 
+#     instructions="""You are Jeeves, a routing assistant.
 # Your ONLY job is to determine user intent and immediately hand off to the correct specialist agent.
 
 # RULES:
@@ -118,23 +85,46 @@ transfer_to_object_detector = handoff(
 # )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Jeeves (Orchestrator) Agent
+# ─────────────────────────────────────────────────────────────────────────────
+
 jeeves_agent = Agent(
     name="Jeeves",
-    instructions=(
-        "Route requests. If user asks about past activities, call time_agent_tool. "
-        "If user asks to find an object, call object_detector_tool. "
-        "Otherwise answer directly."
-    ),
+    instructions="""You are Jeeves, a smart routing assistant and orchestrator.
+Your goal is to answer the user's question by coordinating with specialist agents.
+
+1. ANALYZE the user's request.
+2. CALL the appropriate tool(s) to get the information.
+   - Use `time_agent_tool` for questions about past activities, history, or conversations.
+   - Use `object_detector_tool` for questions about finding objects.
+3. SYNTHESIZE the tool output into a final `JeevesResponse`.
+
+IMPORTANT: You MUST return a `JeevesResponse` object.
+- If you used `object_detector_tool` and it found an object:
+  - set `response_type="search_result"`
+  - set `text` to the description
+  - set `image_path` to the `highlighted_image_path` from the tool result
+  - set `data` to the full tool result dictionary
+- If you used `time_agent_tool`:
+  - set `response_type="activity"`
+  - set `text` to the `text` field from the tool result
+  - set `data` to the `data` field from the tool result
+- For general questions/greetings:
+  - set `response_type="general"`
+  - set `text` to your polite response
+""",
     tools=[
         time_agent.as_tool(
             tool_name="time_agent_tool",
-            tool_description="Use for questions about past activities/conversations."
+            tool_description="Use for questions about past activities/conversations.",
         ),
         object_detector_agent.as_tool(
             tool_name="object_detector_tool",
-            tool_description="Use for locating lost objects."
+            tool_description="Use for locating lost objects.",
         ),
     ],
+    output_type=AgentOutputSchema(JeevesResponse, strict_json_schema=False),
 )
 
 
@@ -154,11 +144,10 @@ async def run_demo_loop():
                 print("Goodbye!")
                 break
 
-            # Using Runner.run handles the loop of tool calls (handoffs) automatically
+            # Using Runner.run handles the loop of tool calls automatically
+            # The final result will be a JeevesResponse object because of output_type
             result = await Runner.run(jeeves_agent, user_input)
-
-            # Convert to unified response for API consumption
-            response = process_response(result)
+            response = result.final_output
 
             # Display the response
             print(f"\nJeeves: {response.text}")
@@ -186,8 +175,19 @@ async def run_single_query(query: str) -> JeevesResponse:
         response = await run_single_query("Where are my keys?")
         return jsonify(response.model_dump())
     """
-    result = await Runner.run(jeeves_agent, query)
-    return process_response(result)
+    try:
+        result = await Runner.run(jeeves_agent, query)
+
+        # In the Manager pattern with output_type set, final_output SHOULD be JeevesResponse
+        if isinstance(result.final_output, JeevesResponse):
+            return result.final_output
+
+        # Fallback if something went wrong and we got a string
+        return JeevesResponse(response_type="general", text=str(result.final_output))
+    except Exception as e:
+        return JeevesResponse(
+            response_type="general", text=f"I encountered an error: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

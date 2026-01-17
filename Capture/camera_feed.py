@@ -34,8 +34,10 @@ ROOMS = {
 }
 
 
-def send_fall_alert(gmail_agent, camera_idx, timestamp):
-    """Send alert when a fall is detected."""
+def send_fall_alert(
+    gmail_agent, camera_idx, timestamp, frame=None, screenshot_dir=None
+):
+    """Send alert when a fall is detected, optionally with a screenshot."""
     print(f"⚠️ FALL DETECTED! Camera {camera_idx} at {timestamp}")
     print("🚨 ALERT: Person has fallen down! Immediate attention required!")
 
@@ -43,6 +45,19 @@ def send_fall_alert(gmail_agent, camera_idx, timestamp):
     room_name = ROOMS.get(
         CAMERA_ROOM_MAPPING.get(camera_idx, -1), f"Camera {camera_idx}"
     )
+
+    # Save screenshot of the fall if frame is provided
+    screenshot_path = None
+    if frame is not None and screenshot_dir is not None:
+        try:
+            os.makedirs(screenshot_dir, exist_ok=True)
+            screenshot_filename = f"fall_alert_{camera_idx}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.jpg"
+            screenshot_path = os.path.join(screenshot_dir, screenshot_filename)
+            cv2.imwrite(screenshot_path, frame)
+            print(f"📸 Fall screenshot saved: {screenshot_path}")
+        except Exception as e:
+            print(f"Error saving fall screenshot: {e}")
+            screenshot_path = None
 
     if gmail_agent:
         try:
@@ -53,6 +68,7 @@ def send_fall_alert(gmail_agent, camera_idx, timestamp):
                 alert_type="FALL DETECTED",
                 location=room_name,
                 timestamp=timestamp,
+                image_path=screenshot_path,
             )
         except Exception as e:
             print(f"Error sending email alert: {e}")
@@ -122,7 +138,7 @@ def camera_feed():
     last_person_detected_time = {}  # Track when person was last detected per camera
     current_video_filename = {}  # Track current video filename for screenshot
     fall_alert_sent = {}  # Track if fall alert has been sent for current recording session
-    DETECTION_BUFFER_SECONDS = 3  # 3-second buffer before stopping recording
+    DETECTION_BUFFER_SECONDS = 5  # 3-second buffer before stopping recording
 
     # Track fall start time for stability check
     fall_start_time = {}
@@ -223,13 +239,19 @@ def camera_feed():
                         fall_start_time[idx] = current_time
                     else:
                         fall_duration = current_time - fall_start_time[idx]
-                        if fall_duration >= 5:
-                            # Confirmed fall for 5 seconds
+                        if fall_duration >= 3.5:
+                            # Confirmed fall for 3.5 seconds - send alert with screenshot
                             if recording_active[idx] and not fall_alert_sent[idx]:
                                 timestamp_str = datetime.now().strftime(
                                     "%Y-%m-%d %H:%M:%S"
                                 )
-                                send_fall_alert(gmail_agent, idx, timestamp_str)
+                                send_fall_alert(
+                                    gmail_agent,
+                                    idx,
+                                    timestamp_str,
+                                    frame=frame,
+                                    screenshot_dir=screenshot_output_dirs[idx],
+                                )
                                 fall_alert_sent[idx] = True
                 else:
                     # Reset fall timer if no fall detected

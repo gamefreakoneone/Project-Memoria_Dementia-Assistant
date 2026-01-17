@@ -1,6 +1,8 @@
-from agents import Agent, function_tool, Runner
+from agents import Agent, function_tool, Runner, AgentOutputSchema
+
 from motor.motor_asyncio import AsyncIOMotorClient
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
+
 from pydantic import BaseModel, Field
 import os
 import re
@@ -215,10 +217,19 @@ async def _get_events(
     cursor = collection.find(query).sort("timestamp", 1).limit(limit)
 
     async for doc in cursor:
+        timestamp = doc.get("timestamp", now_local())
+
+        # Ensure timestamp is aware. If naive, assume UTC (standard Mongo behavior)
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+
+        # Convert to Local Timezone
+        timestamp_local = timestamp.astimezone(LOCAL_TZ)
+
         room_num = doc.get("room_number", 0)
         events.append(
             ActivityEvent(
-                timestamp=doc.get("timestamp", now_local()),
+                timestamp=timestamp_local,
                 room_number=room_num,
                 room_name=ROOMS.get(room_num, f"Room {room_num}"),
                 video_description=doc.get("video_description", ""),
@@ -627,25 +638,38 @@ if __name__ == "__main__":
 
     async def main():
         print("Running Time Agent Test...")
-        result = await run_agent(
-            "What was I doing yesterday?"
-        )
+        result = await run_agent("What was I talking to myself about yesterday?")
         print(result)
         await close_clients()
 
     asyncio.run(main())
 
 
-time_agent =Agent(
-        name="TimeAgent",
-        instructions="""You are a compassionate memory assistant for dementia patients.
+class TimeResult(BaseModel):
+    response_type: Literal["timeline", "transcripts", "activity_check", "general"] = (
+        "general"
+    )
+    text: str = Field(description="The main human-readable answer to display")
+    data: Dict[str, Any] = Field(
+        default_factory=dict, description="Raw structured data"
+    )
+
+
+time_agent = Agent(
+    name="TimeAgent",
+    instructions="""You are a compassionate memory assistant for dementia patients.
 Your role is to help users recall their activities, conversations, and daily routines.
 
 When a user asks about their activities:
 1. Determine the time frame (yesterday, recently, specific date)
 2. Determine if they're asking about a specific room or all rooms
 3. Use the appropriate tool to query their activity history
-4. Present information in a warm, reassuring, and easy-to-understand way
+4. Present information in a warm, reassuring, and easy-to-understand way.
+
+IMPORTANT: You must return a `TimeResult` object path as your final answer.
+- For timeline queries, set response_type="timeline" and put the TimelineResult data in `data`.
+- For transcript queries, set response_type="transcripts".
+- For general conversation, set response_type="general".
 
 Available tools:
 - get_activity_history: For general queries like "What was I doing yesterday?", "recently?", "last 3 hours?"
@@ -655,10 +679,11 @@ Available tools:
 
 Always be patient, kind, and reassuring. If you can't find information, 
 explain gently. And dont promise capabilities you dont have for example creating a checklist or reminders.""",
-        tools=[
-            get_activity_history,
-            get_room_activity,
-            get_recent_transcripts,
-            check_activity,
-        ],
-    )
+    tools=[
+        get_activity_history,
+        get_room_activity,
+        get_recent_transcripts,
+        check_activity,
+    ],
+    output_type=AgentOutputSchema(TimeResult, strict_json_schema=False),
+)

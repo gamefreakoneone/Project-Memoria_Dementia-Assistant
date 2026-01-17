@@ -5,8 +5,6 @@ import time
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 import pickle
 from typing import List, Dict, Optional
 
@@ -128,8 +126,18 @@ class GmailAgent:
             alert_type: Type of alert (e.g., "FALL DETECTED")
             location: Where the event occurred
             timestamp: When the event occurred
-            image_path: Optional path to an image to attach
+            image_path: Optional path to an image to embed in email body
         """
+        # Build the image HTML section if image is provided
+        image_section = ""
+        if image_path and os.path.exists(image_path):
+            image_section = """
+                    <div style="margin-top: 20px; text-align: center;">
+                        <p style="font-weight: bold; margin-bottom: 10px;"> Captured Screenshot:</p>
+                        <img src="cid:fall_screenshot" style="max-width: 100%; border-radius: 8px; border: 2px solid #d32f2f;" alt="Fall Detection Screenshot"/>
+                    </div>
+            """
+
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -201,18 +209,6 @@ class GmailAgent:
                     font-size: 12px;
                     color: #777;
                 }}
-                .action-btn {{
-                    display: block;
-                    width: 200px;
-                    margin: 20px auto;
-                    padding: 12px;
-                    background-color: #d32f2f;
-                    color: white;
-                    text-align: center;
-                    text-decoration: none;
-                    border-radius: 4px;
-                    font-weight: bold;
-                }}
             </style>
         </head>
         <body>
@@ -243,8 +239,7 @@ class GmailAgent:
                     </div>
                     
                     <p>Please check on the individual immediately.</p>
-                    
-                    <a href="#" class="action-btn">View Live Feed</a>
+                    {image_section}
                 </div>
                 
                 <div class="footer">
@@ -256,9 +251,53 @@ class GmailAgent:
         </html>
         """
 
-        # TODO: Implement image attachment if image_path is provided
-        # For now, just send the HTML email
-        return self.send_email(to, subject, html_content)
+        try:
+            from email.mime.image import MIMEImage
+
+            message = MIMEMultipart("related")
+            message["To"] = to
+            message["Subject"] = subject
+
+            # Attach the HTML content
+            message.attach(MIMEText(html_content, "html"))
+
+            # Embed image inline if provided
+            if image_path and os.path.exists(image_path):
+                try:
+                    with open(image_path, "rb") as img_file:
+                        img_data = img_file.read()
+
+                    # Determine MIME type based on extension
+                    ext = os.path.splitext(image_path)[1].lower()
+                    subtype = "jpeg" if ext in [".jpg", ".jpeg"] else "png"
+
+                    img = MIMEImage(img_data, _subtype=subtype)
+                    img.add_header("Content-ID", "<fall_screenshot>")
+                    img.add_header(
+                        "Content-Disposition",
+                        "inline",
+                        filename=os.path.basename(image_path),
+                    )
+                    message.attach(img)
+                    print(f"Embedded image in email: {os.path.basename(image_path)}")
+                except Exception as e:
+                    print(f"Warning: Could not embed image: {e}")
+
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+            sent_message = (
+                self.service.users()
+                .messages()
+                .send(userId="me", body={"raw": raw_message})
+                .execute()
+            )
+
+            print(f"Alert email sent successfully! Message ID: {sent_message['id']}")
+            return {"success": True, "message_id": sent_message["id"]}
+
+        except HttpError as error:
+            print(f"An error occurred sending alert email: {error}")
+            return {"success": False, "error": str(error)}
 
     # ==================== RECEIVING EMAILS ====================
 
