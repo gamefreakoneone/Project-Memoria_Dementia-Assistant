@@ -5,7 +5,7 @@ import os
 import sys
 import time
 from audio_capture import AudioRecorder
-from video_processing_queue import VideoProcessingQueue
+# from video_processing_queue import VideoProcessingQueue
 
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -146,8 +146,8 @@ def camera_feed():
     # Producer-Consumer queue for video processing
     recording_start_timestamp = {}  # Track when recording started per camera
     current_audio_filename = {}  # Track current audio filename per camera
-    processing_queue = VideoProcessingQueue()
-    processing_queue.start()
+    # processing_queue = VideoProcessingQueue()
+    # processing_queue.start()
 
     for idx in camera_indices:
         cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
@@ -306,13 +306,13 @@ def camera_feed():
                             )
 
                             # Add video task to processing queue
-                            processing_queue.add_task(
-                                video_path=current_video_filename[idx],
-                                audio_path=current_audio_filename[idx],
-                                screenshot_path=screenshot_path or "",
-                                room_number=CAMERA_ROOM_MAPPING.get(idx, idx),
-                                timestamp=recording_start_timestamp[idx],
-                            )
+                            # processing_queue.add_task(
+                            #     video_path=current_video_filename[idx],
+                            #     audio_path=current_audio_filename[idx],
+                            #     screenshot_path=screenshot_path or "",
+                            #     room_number=CAMERA_ROOM_MAPPING.get(idx, idx),
+                            #     timestamp=recording_start_timestamp[idx],
+                            # )
 
                             current_video_filename[idx] = None
                             current_audio_filename[idx] = None
@@ -437,18 +437,18 @@ def camera_feed():
                     current_video_filename[idx], screenshot_output_dirs[idx]
                 )
                 # Add active recording to queue before shutdown
-                processing_queue.add_task(
-                    video_path=current_video_filename[idx],
-                    audio_path=current_audio_filename.get(idx, ""),
-                    screenshot_path=screenshot_path or "",
-                    room_number=CAMERA_ROOM_MAPPING.get(idx, idx),
-                    timestamp=recording_start_timestamp.get(idx, now_local()),
-                )
+                # processing_queue.add_task(
+                #     video_path=current_video_filename[idx],
+                #     audio_path=current_audio_filename.get(idx, ""),
+                #     screenshot_path=screenshot_path or "",
+                #     room_number=CAMERA_ROOM_MAPPING.get(idx, idx),
+                #     timestamp=recording_start_timestamp.get(idx, now_local()),
+                # )
     cv2.destroyAllWindows()
     print("All cameras released and windows closed")
 
     # Wait for all queued videos to be processed before exiting
-    processing_queue.stop()
+    # processing_queue.stop()
 
 
 if __name__ == "__main__":
