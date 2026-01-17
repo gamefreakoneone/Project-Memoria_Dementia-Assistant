@@ -14,3 +14,10 @@ pydub                # Audio format conversion (requires FFmpeg)
 
 # Utilities
 python-dotenv        # Environment variable loading from .env
+
+# Web Server
+fastapi              # Backend API
+uvicorn              # ASGI Server
+
+# Database
+motor                # Async MongoDB driver

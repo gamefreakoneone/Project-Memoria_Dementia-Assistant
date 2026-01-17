@@ -582,58 +582,58 @@ Reply with JSON:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-# def create_time_agent() -> Agent:
-#     """Create and return the TimeAgent with all tools configured."""
-#     return Agent(
-#         name="TimeAgent",
-#         instructions="""You are a compassionate memory assistant for dementia patients.
-# Your role is to help users recall their activities, conversations, and daily routines.
+def create_time_agent() -> Agent:
+    """Create and return the TimeAgent with all tools configured."""
+    return Agent(
+        name="TimeAgent",
+        instructions="""You are a compassionate memory assistant for dementia patients.
+Your role is to help users recall their activities, conversations, and daily routines.
 
-# When a user asks about their activities:
-# 1. Determine the time frame (yesterday, recently, specific date)
-# 2. Determine if they're asking about a specific room or all rooms
-# 3. Use the appropriate tool to query their activity history
-# 4. Present information in a warm, reassuring, and easy-to-understand way
+When a user asks about their activities:
+1. Determine the time frame (yesterday, recently, specific date)
+2. Determine if they're asking about a specific room or all rooms
+3. Use the appropriate tool to query their activity history
+4. Present information in a warm, reassuring, and easy-to-understand way
 
-# Available tools:
-# - get_activity_history: For general queries like "What was I doing yesterday?", "recently?", "last 3 hours?"
-# - get_room_activity: For specific room queries like "What was I doing in the bedroom?"
-# - get_recent_transcripts: For "What was I talking about?"
-# - check_activity: For "Did I take my medication?" or verifying specific activities
+Available tools:
+- get_activity_history: For general queries like "What was I doing yesterday?", "recently?", "last 3 hours?"
+- get_room_activity: For specific room queries like "What was I doing in the bedroom?"
+- get_recent_transcripts: For "What was I talking about?"
+- check_activity: For "Did I take my medication?" or verifying specific activities
 
-# Always be patient, kind, and reassuring. If you can't find information, 
-# explain gently. And dont promise capabilities you dont have for example creating a checklist or reminders.""",
-#         tools=[
-#             get_activity_history,
-#             get_room_activity,
-#             get_recent_transcripts,
-#             check_activity,
-#         ],
-#     )
-
-
-# async def run_agent(query: str) -> str:
-#     """Run the TimeAgent with a given query and return the response."""
-#     agent = create_time_agent()
-#     result = await Runner.run(agent, query)
-#     return result.final_output
+Always be patient, kind, and reassuring. If you can't find information, 
+explain gently. And dont promise capabilities you dont have for example creating a checklist or reminders.""",
+        tools=[
+            get_activity_history,
+            get_room_activity,
+            get_recent_transcripts,
+            check_activity,
+        ],
+    )
 
 
-# # ─────────────────────────────────────────────────────────────────────────────
-# # Main Entry Point
-# # ─────────────────────────────────────────────────────────────────────────────
+async def run_agent(query: str) -> str:
+    """Run the TimeAgent with a given query and return the response."""
+    agent = create_time_agent()
+    result = await Runner.run(agent, query)
+    return result.final_output
 
-# if __name__ == "__main__":
 
-#     async def main():
-#         print("Running Time Agent Test...")
-#         result = await run_agent(
-#             "Can you tell me the exact transcript about what I was talking to myself about yesterday?"
-#         )
-#         print(result)
-#         await close_clients()
+# ─────────────────────────────────────────────────────────────────────────────
+# Main Entry Point
+# ─────────────────────────────────────────────────────────────────────────────
 
-#     asyncio.run(main())
+if __name__ == "__main__":
+
+    async def main():
+        print("Running Time Agent Test...")
+        result = await run_agent(
+            "What was I doing yesterday?"
+        )
+        print(result)
+        await close_clients()
+
+    asyncio.run(main())
 
 
 time_agent =Agent(

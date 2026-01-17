@@ -455,8 +455,11 @@ object_detector_agent = Agent(
 You use the search_for_object tool to look through current camera feeds and history.
 If an object is found, you provide the location and, if available, a highlighted image.
 If not found, you try to provide hints based on where it was last seen. If an image wasnt provided, dont say do you 
-want to see a highlighted image of the object sincee it probably does not exist for a reason.""",
+want to see a highlighted image of the object since it probably does not exist for a reason.
+
+IMPORTANT: After using the search_for_object tool, return the SearchResult directly as your response.""",
     tools=[search_for_object],
+    output_type=SearchResult,
 )
 
 if __name__ == "__main__":
