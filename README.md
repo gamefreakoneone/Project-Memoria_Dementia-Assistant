@@ -2,23 +2,36 @@
 
 Memoria is an intelligent dementia assistance system designed to improve safety and accessibility for users. It combines computer vision for fall detection with a smart conversational agent ("Jeeves") that can help locate lost objects and recall past activities.
 
+![Demo GIF](Demo/shortened%20project%20meoria%20(1).gif)
+
 ## Features
 
-- **Fall Detection**: Real-time monitoring using YOLOv11 to detect falls and send immediate email alerts with screenshots.
-- **Smart Assistant (Jeeves)**: A unified conversational interface that orchestrates specialized agents:
-  - **Object Detector**: Locates lost items (e.g., "Where are my keys?") and provides visual context.
-  - **Time Agent**: Tracks and recalls past activities (e.g., "What did I do yesterday?").
-- **Video & Audio Recording**: Automatically records events of interest for history tracking.
+- **Fall Detection**: Real-time monitoring using a custom YOLOv11 model. Detects falls with a stability buffer (3.5s) to reduce false positives and sends immediate email alerts with attached event screenshots to caregivers.
+- **Smart Assistant (Jeeves)**: A unified "Manager" agent that orchestrates specialized tools:
+  - **Object Detector**: Locates lost items (e.g., "Where are my keys?") and returns visual context with highlighted images.
+  
+  <p float="left">
+    <img src="Demo/whitewaterbottle%20demo.png" width="45%" />
+    <img src="Demo/blacksmartphon%20demo.png" width="45%" />
+  </p>
+
+  - **Time Agent**: Tracks presence and conversations. Can answer "What did I do yesterday?", "What was I talking about?" (transcripts), or check specific rooms (e.g., "Was I in the kitchen?"). Powered by MongoDB for event storage.
+- **Video & Audio Recording**: Smart buffering records events of interest while respecting privacy.
 - **Privacy-First**: Local processing for critical detection tasks.
+
+## Architecture
+
+![Architecture Diagram](Demo/Project%20Memoria%20Architecture.png)
 
 ## Prerequisites
 
 - **Python 3.10+**
-- **Webcam** (for fall detection and specific object search)
+- **MongoDB**: Required for the Time Agent to store and retrieve activity history.
+- **Webcam**: For fall detection and object search.
 - **API Keys**:
-  - OpenAI API Key (for Jeeves/LLM capabilities)
-  - Google Gemini API Key (for video analysis)
-  - Google Cloud Credentials (for Gmail/Drive integrations)
+  - OpenAI API Key (for Jeeves/LLM reasoning)
+  - Google Gemini API Key (for video content analysis)
+  - Google Cloud Credentials (for Gmail alerts & Drive upload)
 
 ## Setup Instructions
 
@@ -37,13 +50,17 @@ pip install -r requirements.txt
 For the Segment Anything Model 3 (SAM3) API setup, please refer to the official SAM3 repository for installation and configuration instructions:
 **[https://github.com/facebookresearch/sam3](https://github.com/facebookresearch/sam3)**
 
-### 4. Configuration
-1.  **Environment Variables**: Create a `.env` file in the root directory (refer to `.env.example` if available, or add the following):
+### 4. Database Setup
+Ensure **MongoDB** is installed and running locally on the default port (`27017`). The Time Agent connects to `mongodb://localhost:27017` by default.
+
+### 5. Configuration
+1.  **Environment Variables**: Create a `.env` file in the root directory:
     ```ini
     OPENAI_API_KEY=your_openai_key
     GOOGLE_API_KEY=your_gemini_key
+    MONGODB_URI=mongodb://localhost:27017 (Optional, defaults to local)
     ```
-2.  **Google Credentials**: Ensure you have `credentials.json` in `Blue_dream_agents/Tools/` for Google service integrations (Gmail/Drive).
+2.  **Google Credentials**: Place your `credentials.json` file in `Blue_dream_agents/Tools/` to enable Gmail alerts and Drive integration.
 
 ## Running the Project
 
@@ -67,7 +84,16 @@ Open your web browser and navigate to:
 
 ## Directory Structure
 
-- **Blue_dream_agents/**: Contains the logic for Jeeves, Time Agent, Object Detector, and API endpoints.
-- **Capture/**: Computer vision scripts, YOLO models, and camera handling logic.
-- **UI/**: Frontend web interface (HTML/CSS/JS).
-- **Storage/**: Stores recorded videos, audio, and screenshots.
+- **Blue_dream_agents/**: Core logic for Jeeves, Time Agent, and API.
+- **Blue_dream_agents/Tools/**: Utilities for email (GmailAgent) and integrations.
+- **Capture/**: Computer vision scripts (`camera_feed.py`), YOLO models, and recording logic.
+- **UI/**: Frontend web interface.
+- **Storage/**: Local storage for recordings and screenshots.
+
+## TODO
+
+- [ ] Add Facial Recognition
+- [ ] Make an improved Semantic Search System 
+- [ ] Build a Video Parser not dependent on Google Gemini's 20 video limit
+- [ ] Build a faster Segmentation Model as an alternative to SAM3
+- [ ] Live Feed
