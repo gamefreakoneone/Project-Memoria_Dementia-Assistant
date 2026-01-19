@@ -29,22 +29,22 @@ Memoria is an intelligent dementia assistance system designed to improve safety 
 ## Performance Evaluation : YOLO Model
 
 ### Precision-Recall Curve
-![PR Curve](Demo\BoxPR_curve.png)
+![PR Curve](Demo/BoxPR_curve.png)
 - mAP@0.5: 0.923
 - Fallen detection mAP: 0.950
 - Not fallen detection mAP: 0.895
 
 ### F1-Confidence Curve
-![F1 Curve](Demo\BoxF1_curve.png)
+![F1 Curve](Demo/BoxF1_curve.png)
 - Best F1 score: 0.90 at confidence 0.349
 
 ### Precision-Confidence Curve
-![Precision Curve](Demo\BoxP_curve.png)
+![Precision Curve](Demo/BoxP_curve.png)
 - Precision reaches 1.00 at confidence 0.949
 
 ### Confusion Matrix
-![Confusion Matrix Normalized](Demo\confusion_matrix_normalized.png)
-![Confusion Matrix](Demo\confusion_matrix.png)
+![Confusion Matrix Normalized](Demo/confusion_matrix_normalized.png)
+![Confusion Matrix](Demo/confusion_matrix.png)
 - Fallen detection accuracy: 94%
 - Not fallen detection accuracy: 87%
 
