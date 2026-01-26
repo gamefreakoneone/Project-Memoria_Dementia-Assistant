@@ -1,0 +1,574 @@
+manifest:
+  version: "0.1.2"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: gamefreakoneone/project-memoria_dementia-assistant
+    source: https://github.com/gamefreakoneone/project-memoria_dementia-assistant
+    branch: main
+    commit: "fe540c7c"
+    scope: [Blue_dream_agents/Tools/dementia_email.py, Blue_dream_agents/jeeves.py, Blue_dream_agents/object-detector(archive).py,
+      Blue_dream_agents/object_detector.py, Blue_dream_agents/sam3_api.py, Blue_dream_agents/time-agent copy.py, Blue_dream_agents/time_agent.py,
+      Blue_dream_agents/timezone_utils.py]
+  issued:
+    by: A2AS.org
+    at: '2026-01-26T16:10:44Z'
+  signatures:
+    digest: sha256:5d8uyNfcAkWAR8R3BcmTSXtt_7dFT0uDKDVa8dI7Nrc
+    key: ed25519:uX4MNvqQdcbtZUI4u_FbpjaLL5tDTJEnQ3Qr0XWbe6g
+    sig: ed25519:J3agMfkf4rLzSofTI1ct_ycJdxERQKCOjErn6JHfmJxucLU3jK-Jfw5veHGivw1Zf8XXEKkGsT7la_-LsPhzBA
+
+agents:
+  agent:
+    type: instance
+    models: [gpt-4.1]
+    tools: [get_activity_history, get_room_activity, get_recent_transcripts, check_activity]
+    params:
+      function: create_time_agent
+      name: TimeAgent
+      instructions: [You are a compassionate memory assistant for dementia patients., 'Your role is to help users recall their
+          activities, conversations, and daily routines.', 'When a user asks about their activities:', '1. Determine the time
+          frame (yesterday, recently, specific date)', 2. Determine if they're asking about a specific room or all rooms,
+        3. Use the appropriate tool to query their activity history, '4. Present information in a warm, reassuring, and easy-to-understand
+          way', 'Available tools:', '- get_activity_history: For general queries like "What was I doing yesterday?", "recently?",
+          "last 3 hours?"', '- get_room_activity: For specific room queries like "What was I doing in the bedroom?"', '- get_recent_transcripts:
+          For "What was I talking about?"', '- check_activity: For "Did I take my medication?" or verifying specific activities',
+        'Always be patient, kind, and reassuring. If you can''t find information,', explain gently and offer alternatives.]
+  agent.create_time_agent.1:
+    type: factory
+    models: [gpt-4.1]
+    tools: [get_activity_history, get_room_activity, get_recent_transcripts, check_activity]
+    params:
+      function: create_time_agent
+      name: TimeAgent
+      instance: agent.create_time_agent
+      instructions: [You are a compassionate memory assistant for dementia patients., 'Your role is to help users recall their
+          activities, conversations, and daily routines.', 'When a user asks about their activities:', '1. Determine the time
+          frame (yesterday, recently, specific date)', 2. Determine if they're asking about a specific room or all rooms,
+        3. Use the appropriate tool to query their activity history, '4. Present information in a warm, reassuring, and easy-to-understand
+          way', 'Available tools:', '- get_activity_history: For general queries like "What was I doing yesterday?", "recently?",
+          "last 3 hours?"', '- get_room_activity: For specific room queries like "What was I doing in the bedroom?"', '- get_recent_transcripts:
+          For "What was I talking about?"', '- check_activity: For "Did I take my medication?" or verifying specific activities',
+        'Always be patient, kind, and reassuring. If you can''t find information,', explain gently. And dont promise capabilities
+          you dont have for example creating a checklist or reminders.]
+  jeeves_agent:
+    type: instance
+    models: [gpt-4.1]
+    tools: [time_agent_tool, object_detector_tool]
+    params:
+      name: Jeeves
+      output_type: AgentOutputSchema(JeevesResponse, strict_json_schema=False)
+      instructions: ['You are Jeeves, a smart routing assistant and orchestrator.', Your goal is to answer the user's question
+          by coordinating with specialist agents., 1. ANALYZE the user's request., 2. CALL the appropriate tool(s) to get
+          the information., '- Use `time_agent_tool` for questions about past activities, history, or conversations.', '-
+          Use `object_detector_tool` for questions about finding objects.', 3. SYNTHESIZE the tool output into a final `JeevesResponse`.,
+        'IMPORTANT: You MUST return a `JeevesResponse` object.', '- If you used `object_detector_tool` and it found an object:',
+        '- set `response_type="search_result"`', '- set `text` to the description', '- set `image_path` to the `highlighted_image_path`
+          from the tool result', '- set `data` to the full tool result dictionary', '- If you used `time_agent_tool`:', '-
+          set `response_type="activity"`', '- set `text` to the `text` field from the tool result', '- set `data` to the `data`
+          field from the tool result', '- For general questions/greetings:', '- set `response_type="general"`', '- set `text`
+          to your polite response']
+  object_detector_agent:
+    type: instance
+    models: [gpt-4.1]
+    tools: [search_for_object]
+    params:
+      name: ObjectDetector
+      output_type: SearchResult
+      instructions: [You are a helpful assistant that helps users find their lost items., You use the search_for_object tool
+          to look through current camera feeds and history., 'If an object is found, you provide the location and, if available,
+          a highlighted image.', 'If not found, you try to provide hints based on where it was last seen. If an image wasnt
+          provided, dont say do you', want to see a highlighted image of the object since it probably does not exist for a
+          reason., 'IMPORTANT: After using the search_for_object tool, return the SearchResult directly as your response.']
+  time_agent:
+    type: instance
+    models: [gpt-4.1]
+    tools: [get_activity_history, get_room_activity, get_recent_transcripts, check_activity]
+    params:
+      name: TimeAgent
+      output_type: AgentOutputSchema(TimeResult, strict_json_schema=False)
+      instructions: [You are a compassionate memory assistant for dementia patients., 'Your role is to help users recall their
+          activities, conversations, and daily routines.', 'When a user asks about their activities:', '1. Determine the time
+          frame (yesterday, recently, specific date)', 2. Determine if they're asking about a specific room or all rooms,
+        3. Use the appropriate tool to query their activity history, '4. Present information in a warm, reassuring, and easy-to-understand
+          way.', 'IMPORTANT: You must return a `TimeResult` object path as your final answer.', '- For timeline queries, set
+          response_type="timeline" and put the TimelineResult data in `data`.', '- For transcript queries, set response_type="transcripts".',
+        '- For general conversation, set response_type="general".', 'Available tools:', '- get_activity_history: For general
+          queries like "What was I doing yesterday?", "recently?", "last 3 hours?"', '- get_room_activity: For specific room
+          queries like "What was I doing in the bedroom?"', '- get_recent_transcripts: For "What was I talking about?"', '-
+          check_activity: For "Did I take my medication?" or verifying specific activities', 'Always be patient, kind, and
+          reassuring. If you can''t find information,', explain gently. And dont promise capabilities you dont have for example
+          creating a checklist or reminders.]
+
+models:
+  gpt-4.1:
+    type: default
+    agents: [jeeves_agent, agent.create_time_agent.1, time_agent, object_detector_agent, agent]
+
+tools:
+  check_activity:
+    type: decorator
+    agents: [agent, agent.create_time_agent.1, time_agent]
+    params:
+      description: |-
+        Semantically search for a specific activity (e.g., medication, eating).
+
+        Uses LLM to find synonyms and related activities. For example,
+        searching for "medication" will also match "pills", "medicine", etc.
+
+        Args:
+            activity: What to search for (e.g., "medication", "eating", "exercise").
+            hours: Number of hours to look back (default: 24).
+
+        Returns:
+            ActivityCheckResult indicating if the activity was found.
+  get_activity_history:
+    type: decorator
+    agents: [agent, agent.create_time_agent.1, time_agent]
+    params:
+      description: |-
+        Get a summary of activities for a specific time range.
+
+        Args:
+            time_range: "yesterday", "today", "recently", "last N hours",
+                       "last N days", or specific date YYYY-MM-DD.
+
+        Returns:
+            TimelineResult with a friendly summary of the activities.
+  get_recent_transcripts:
+    type: decorator
+    agents: [agent, agent.create_time_agent.1, time_agent]
+    params:
+      description: |-
+        Get audio transcripts from recent events.
+
+        Args:
+            keyword: Optional keyword to filter transcripts by.
+            hours: Number of hours to look back (default: 3).
+
+        Returns:
+            TranscriptResult with what was being discussed.
+  get_room_activity:
+    type: decorator
+    agents: [agent, agent.create_time_agent.1, time_agent]
+    params:
+      description: |-
+        Get activities for a specific room.
+
+        Args:
+            room_name: "bedroom", "living room", "kitchen", etc.
+            time_range: "yesterday", "today", "last N hours", etc. (default: "today")
+
+        Returns:
+            TimelineResult with room-specific activities.
+  object_detector_tool:
+    type: agent
+    agents: [jeeves_agent]
+    params:
+      alias: object_detector_agent.as_tool
+      tool_description: Use for locating lost objects.
+  search_for_object:
+    type: decorator
+    agents: [object_detector_agent]
+    params:
+      description: |-
+        Search for a physical object in the monitored rooms.
+        Use this when the user asks "Where is my keys?", "Find the remote", etc.
+  time_agent_tool:
+    type: agent
+    agents: [jeeves_agent]
+    params:
+      alias: time_agent.as_tool
+      tool_description: Use for questions about past activities/conversations.
+
+imports:
+  Agent: agents.Agent
+  AgentOutputSchema: agents.AgentOutputSchema
+  Any: typing.Any
+  asyncio: asyncio
+  AsyncIOMotorClient: motor.motor_asyncio.AsyncIOMotorClient
+  AsyncOpenAI: openai.AsyncOpenAI
+  AudioRecorder: audio_capture.AudioRecorder
+  base64: base64
+  BaseModel: pydantic.BaseModel
+  build: googleapiclient.discovery.build
+  build_sam3_image_model: sam3.build_sam3_image_model
+  BytesIO: io.BytesIO
+  CORSMiddleware: fastapi.middleware.cors.CORSMiddleware
+  Credentials: google.oauth2.credentials.Credentials
+  cv2: cv2
+  datetime: datetime.datetime
+  Dict: typing.Dict
+  FastAPI: fastapi.FastAPI
+  Field: pydantic.Field
+  find_dotenv: dotenv.find_dotenv
+  function_tool: agents.function_tool
+  GmailAgent: Blue_dream_agents.Tools.dementia_email.GmailAgent
+  handoff: agents.handoff
+  HttpError: googleapiclient.errors.HttpError
+  HTTPException: fastapi.HTTPException
+  Image: PIL.Image
+  InstalledAppFlow: google_auth_oauthlib.flow.InstalledAppFlow
+  json: json
+  List: typing.List
+  Literal: typing.Literal
+  load_dotenv: dotenv.load_dotenv
+  LOCAL_TZ: timezone_utils.LOCAL_TZ
+  matplotlib: matplotlib
+  MIMEImage: email.mime.image.MIMEImage
+  MIMEMultipart: email.mime.multipart.MIMEMultipart
+  MIMEText: email.mime.text.MIMEText
+  now_local: timezone_utils.now_local
+  object_detector_agent: object_detector.object_detector_agent
+  Optional: typing.Optional
+  os: os
+  partial: functools.partial
+  pickle: pickle
+  plot_results: sam3.visualization_utils.plot_results
+  plt: matplotlib.pyplot
+  re: re
+  Request: google.auth.transport.requests.Request
+  run_single_query: jeeves.run_single_query
+  Runner: agents.Runner
+  sam3: sam3
+  sam3_api: sam3_api.sam3_api
+  Sam3Processor: sam3.model.sam3_image_processor.Sam3Processor
+  StaticFiles: fastapi.staticfiles.StaticFiles
+  sys: sys
+  time: time
+  time_agent: time_agent.time_agent
+  timedelta: datetime.timedelta
+  traceback: traceback
+  VideoProcessingQueue: video_processing_queue.VideoProcessingQueue
+  YOLO: ultralytics.YOLO
+  ZoneInfo: zoneinfo.ZoneInfo
+
+functions:
+  __init__:
+    type: sync
+    module: Blue_dream_agents.object-detector(archive)
+    args: [self]
+  _batch_semantic_match:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [search_term, room_states]
+    params:
+      returns: Optional[Dict]
+  _build_time_filter:
+    type: sync
+    module: Blue_dream_agents.time_agent
+    args: [time_range]
+    params:
+      returns: tuple
+  _check_image_worker:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [object_name, room]
+    params:
+      returns: Optional[dict]
+  _get_attachments_info:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, payload]
+    params:
+      returns: List[Dict]
+  _get_events:
+    type: async
+    module: Blue_dream_agents.time_agent
+    args: [start_dt, end_dt, room_number, limit]
+    params:
+      returns: List[ActivityEvent]
+  _get_latest_room_states:
+    type: async
+    module: Blue_dream_agents.object_detector
+    params:
+      returns: List[RoomState]
+  _get_message_body:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, payload]
+    params:
+      returns: str
+  _get_object_hints:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [search_term]
+    params:
+      returns: Optional[str]
+  _get_recent_history:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [limit]
+    params:
+      returns: str
+  _highlight_object:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [object_name, image_path, output_dir]
+    params:
+      returns: Optional[str]
+  _parallel_vision_search:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [object_name, room_states]
+    params:
+      returns: Optional[dict]
+  _parse_query_intent:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [user_query]
+    params:
+      returns: dict
+  _parse_room_name:
+    type: sync
+    module: Blue_dream_agents.time_agent
+    args: [room_name]
+    params:
+      returns: Optional[int]
+  _run_sam3_blocking:
+    type: async
+    module: Blue_dream_agents.object_detector
+    args: [image_path, object_name]
+  _summarize_with_llm:
+    type: async
+    module: Blue_dream_agents.time_agent
+    args: [events, user_query_context]
+    params:
+      returns: str
+  authenticate:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self]
+  camera_feed:
+    type: sync
+    module: Capture.camera_feed
+  check_activity:
+    type: tool
+    module: Blue_dream_agents.time_agent
+    args: [activity, hours]
+    params:
+      returns: ActivityCheckResult
+  close:
+    type: async
+    module: Blue_dream_agents.object-detector(archive)
+    args: [self]
+  close_clients:
+    type: async
+    module: Blue_dream_agents.object_detector
+  create_plot:
+    type: sync
+    module: Blue_dream_agents.sam3_api
+  create_time_agent:
+    type: sync
+    module: Blue_dream_agents.time_agent
+    params:
+      returns: Agent
+  example_callback:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [message]
+  get_activity_history:
+    type: tool
+    module: Blue_dream_agents.time_agent
+    args: [time_range]
+    params:
+      returns: TimelineResult
+  get_message_details:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, message_id]
+    params:
+      returns: Dict
+  get_messages:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, query, max_results]
+    params:
+      returns: List[Dict]
+  get_mongo_client:
+    type: sync
+    module: Blue_dream_agents.object_detector
+    params:
+      returns: AsyncIOMotorClient
+  get_openai_client:
+    type: sync
+    module: Blue_dream_agents.object_detector
+    params:
+      returns: AsyncOpenAI
+  get_recent_emails:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, minutes_ago]
+    params:
+      returns: List[Dict]
+  get_recent_transcripts:
+    type: tool
+    module: Blue_dream_agents.time_agent
+    args: [time_range, room_name]
+    params:
+      returns: TranscriptResult
+  get_room_activity:
+    type: tool
+    module: Blue_dream_agents.time_agent
+    args: [room_name, time_range]
+    params:
+      returns: TimelineResult
+  main:
+    type: async
+    module: Blue_dream_agents.object_detector
+  mark_as_read:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, message_id]
+  mongo_client:
+    type: sync
+    module: Blue_dream_agents.object-detector(archive)
+    args: [self]
+  monitor_inbox:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, check_interval, callback, query]
+  now_local:
+    type: sync
+    module: Blue_dream_agents.timezone_utils
+    params:
+      returns: datetime
+  query_jeeves:
+    type: async
+    module: Blue_dream_agents.api
+    args: [request]
+  reply_to_email:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, message_id, reply_body]
+    params:
+      returns: Dict
+  run_agent:
+    type: async
+    module: Blue_dream_agents.time_agent
+    args: [query]
+    params:
+      returns: str
+  run_demo_loop:
+    type: async
+    module: Blue_dream_agents.jeeves
+  run_inference:
+    type: sync
+    module: Blue_dream_agents.sam3_api
+  run_single_query:
+    type: async
+    module: Blue_dream_agents.jeeves
+    args: [query]
+    params:
+      returns: JeevesResponse
+  sam3_api:
+    type: async
+    module: Blue_dream_agents.sam3_api
+    args: [image_path, prompt]
+  save_last_frame_screenshot:
+    type: sync
+    module: Capture.camera_feed
+    args: [video_path, screenshot_dir]
+  search_agent:
+    type: async
+    module: Blue_dream_agents.object-detector(archive)
+    args: [self, query]
+    params:
+      returns: SearchResult
+  search_for_object:
+    type: tool
+    module: Blue_dream_agents.object_detector
+    args: [user_query]
+    params:
+      returns: SearchResult
+  send_alert_email:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, to, subject, alert_type, location, timestamp, image_path]
+    params:
+      returns: Dict
+  send_email:
+    type: sync
+    module: Blue_dream_agents.Tools.dementia_email
+    args: [self, to, subject, body, cc, bcc]
+    params:
+      returns: Dict
+  send_fall_alert:
+    type: sync
+    module: Capture.camera_feed
+    args: [gmail_agent, camera_idx, timestamp, frame, screenshot_dir]
+
+variables:
+  CUDA_VISIBLE_DEVICES:
+    type: env
+    params:
+      caller: [os.environ]
+  MONGODB_URI:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [find_dotenv()]
+  OPENAI_API_KEY:
+    type: env
+    params:
+      caller: [os.getenv, AsyncOpenAI]
+      path: [find_dotenv()]
+
+files:
+  capture_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists]
+  image_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [Image.open, os.path.exists, open, os.path.basename]
+  output_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.abspath, os.makedirs]
+  output_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [result_image.save]
+  room.screenshot_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists, open]
+  screenshot_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.makedirs]
+  script_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.dirname]
+  storage_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists]
+  ui_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists]
+  video_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.basename]
+
+processes:
+  nvidia-smi:
+    type: shell
+    actions: [exec]
+    params:
+      caller: [os.system]
+      shell: ["True"]
